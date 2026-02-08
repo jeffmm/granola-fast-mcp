@@ -19,8 +19,17 @@ class Config(BaseSettings):
         ),
     )
     log_level: str = Field(default="info", description="Logging level")
+    backup_dir: str = Field(
+        default="~/.granola-backup",
+        description="Directory for backup files and timestamped snapshots.",
+    )
+    max_snapshots: int = Field(
+        default=10,
+        description="Maximum number of timestamped backup snapshots to retain.",
+    )
 
     @model_validator(mode="after")
     def _expand_paths(self) -> "Config":
         object.__setattr__(self, "cache_path", os.path.expanduser(self.cache_path))
+        object.__setattr__(self, "backup_dir", os.path.expanduser(self.backup_dir))
         return self

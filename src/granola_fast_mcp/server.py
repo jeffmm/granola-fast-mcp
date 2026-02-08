@@ -29,7 +29,7 @@ async def lifespan(server: FastMCP):
 mcp = FastMCP("granola", lifespan=lifespan)
 
 # Importing tool modules triggers @mcp.tool() registration
-from granola_fast_mcp.tools import meeting_ops  # noqa: E402, F401
+from granola_fast_mcp.tools import backup_ops, meeting_ops  # noqa: E402, F401
 
 # ---------------------------------------------------------------------------
 # Entry point

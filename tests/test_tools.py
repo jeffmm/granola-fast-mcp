@@ -246,4 +246,5 @@ class TestToolListing:
                 "get_transcript",
                 "get_notes",
                 "analyze_patterns",
+                "backup_cache",
             }

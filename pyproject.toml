@@ -11,6 +11,7 @@ dependencies = [
 
 [project.scripts]
 granola-fast-mcp = "granola_fast_mcp.server:main"
+granola-backup = "granola_fast_mcp.backup:main"
 
 [build-system]
 requires = ["uv_build>=0.8.13,<0.9.0"]
