@@ -7,6 +7,7 @@ from typing import Annotated, Any, Literal
 from fastmcp import Context
 from pydantic import Field
 
+from granola_fast_mcp.backup import run_backup
 from granola_fast_mcp.cache import get_cache_mtime, load_cache
 from granola_fast_mcp.server import mcp
 from granola_fast_mcp.timezone import format_local_time
@@ -20,15 +21,15 @@ from granola_fast_mcp.types import CacheData, MeetingMetadata
 def _get_state(ctx: Context) -> tuple[CacheData, zoneinfo.ZoneInfo]:
     """Extract cache and timezone from lifespan context.
 
-    Automatically reloads the cache from disk when the file has been
-    modified since the last load, so new meetings and updated notes
-    appear without restarting the server.
+    When the live Granola cache has changed, merges it into the backup
+    and reloads from the backup (which is the superset of all data).
     """
     lc: dict[str, Any] = ctx.request_context.lifespan_context
     config = lc["config"]
     current_mtime = get_cache_mtime(config.cache_path)
     if current_mtime != lc["cache_mtime"]:
-        lc["cache"] = load_cache(config.cache_path)
+        run_backup(config.cache_path, config.backup_dir, config.max_snapshots)
+        lc["cache"] = load_cache(lc["backup_path"])
         lc["cache_mtime"] = current_mtime
     return lc["cache"], lc["tz"]
 

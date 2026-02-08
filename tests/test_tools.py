@@ -9,7 +9,7 @@ import pytest
 from fastmcp import Client
 
 
-def _make_server(cache_path: str):
+def _make_server(cache_path: str, backup_dir: str):
     """Import the server module with GRANOLA_CACHE_PATH pointed at a test file.
 
     We need a fresh module import each time so the lifespan reads from the
@@ -17,6 +17,7 @@ def _make_server(cache_path: str):
     happens when the Client connects).
     """
     os.environ["GRANOLA_CACHE_PATH"] = cache_path
+    os.environ["GRANOLA_BACKUP_DIR"] = backup_dir
 
     # Import the module-level `mcp` server object.
     # The lifespan hasn't fired yet — it runs when Client.__aenter__ connects.
@@ -26,8 +27,9 @@ def _make_server(cache_path: str):
 
 
 @pytest.fixture
-def client(sample_cache_path: Path):
-    server = _make_server(str(sample_cache_path))
+def client(sample_cache_path: Path, tmp_path: Path):
+    backup_dir = tmp_path / "test_backup"
+    server = _make_server(str(sample_cache_path), str(backup_dir))
     return Client(server)
 
 
