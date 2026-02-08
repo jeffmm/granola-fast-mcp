@@ -48,7 +48,7 @@ make lint    # ruff check
 ### Key modules (`src/granola_fast_mcp/`)
 
 - **server.py** — FastMCP server instance (`mcp`), lifespan setup, and tool module imports. The lifespan loads config, parses cache, and detects timezone. Tool modules are imported after `mcp` is created to trigger `@mcp.tool()` registration.
-- **config.py** — `Config` frozen dataclass and `load_config()`. Resolves `GRANOLA_CACHE_PATH` env var, falls back to default macOS path.
+- **config.py** — `Config` pydantic-settings `BaseSettings` class with `GRANOLA_` env prefix. Resolves `GRANOLA_CACHE_PATH` env var (with `~` expansion), falls back to default macOS path.
 - **cache.py** — Parses Granola's cache JSON into Pydantic models. Handles two formats: flat (`{documents, transcripts}`) and nested (`{cache: "<json-string>"}` with inner `state` key). Notes content comes from `documentPanels` (AI-generated summaries) with fallback to inline `notes_plain`/`notes_markdown` fields. Also provides `get_cache_mtime()` for file-change detection.
 - **types.py** — Pydantic models: `CacheData`, `MeetingMetadata`, `MeetingDocument`, `MeetingTranscript`.
 - **timezone.py** — US-focused timezone detection from system clock; converts UTC datetimes to local for display.

@@ -4,6 +4,8 @@ An MCP server that exposes your [Granola.ai](https://granola.ai) meeting data �
 
 It reads directly from Granola's local cache file on disk. No API keys, no external calls.
 
+> **Note:** The default cache path assumes macOS (`~/Library/Application Support/Granola/cache-v3.json`). If you're running Granola on another platform, set the `GRANOLA_CACHE_PATH` environment variable to the correct location.
+
 ## Tools
 
 | Tool | Description |
@@ -49,7 +51,14 @@ Granola's desktop app writes meeting data to `~/Library/Application Support/Gran
 
 The cache auto-reloads when the file changes — new meetings and updated notes appear without restarting the server.
 
-To use a different cache file path, set `GRANOLA_CACHE_PATH`:
+### Configuration
+
+Settings are managed via environment variables (prefixed with `GRANOLA_`):
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `GRANOLA_CACHE_PATH` | `~/Library/Application Support/Granola/cache-v3.json` | Path to Granola's cache file. The default is the standard macOS location — override this if Granola stores its cache elsewhere on your platform. |
+| `GRANOLA_LOG_LEVEL` | `info` | Logging level |
 
 ```bash
 GRANOLA_CACHE_PATH=/path/to/cache.json uv run granola-fast-mcp

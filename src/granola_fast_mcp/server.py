@@ -5,7 +5,7 @@ from contextlib import asynccontextmanager
 from fastmcp import FastMCP
 
 from .cache import get_cache_mtime, load_cache
-from .config import load_config
+from .config import Config
 from .timezone import detect_local_timezone
 
 # ---------------------------------------------------------------------------
@@ -15,7 +15,7 @@ from .timezone import detect_local_timezone
 
 @asynccontextmanager
 async def lifespan(server: FastMCP):
-    config = load_config()
+    config = Config()
     cache = load_cache(config.cache_path)
     mtime = get_cache_mtime(config.cache_path)
     tz = detect_local_timezone()

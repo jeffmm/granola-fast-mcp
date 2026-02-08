@@ -1,25 +1,26 @@
-"""Environment variable loading and validation."""
-
-from __future__ import annotations
+"""Application settings via pydantic-settings."""
 
 import os
-from dataclasses import dataclass
+
+from pydantic import Field, model_validator
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 DEFAULT_CACHE_PATH = "~/Library/Application Support/Granola/cache-v3.json"
 
 
-@dataclass(frozen=True)
-class Config:
-    cache_path: str
-    log_level: str = "info"
+class Config(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="GRANOLA_")
 
-
-def load_config() -> Config:
-    cache_path = os.environ.get("GRANOLA_CACHE_PATH")
-    if cache_path is None:
-        cache_path = os.path.expanduser(DEFAULT_CACHE_PATH)
-
-    return Config(
-        cache_path=cache_path,
-        log_level=os.environ.get("LOG_LEVEL", "info").lower(),
+    cache_path: str = Field(
+        default=DEFAULT_CACHE_PATH,
+        description=(
+            "Path to Granola's local cache JSON file. "
+            "Defaults to the standard macOS location."
+        ),
     )
+    log_level: str = Field(default="info", description="Logging level")
+
+    @model_validator(mode="after")
+    def _expand_paths(self) -> "Config":
+        object.__setattr__(self, "cache_path", os.path.expanduser(self.cache_path))
+        return self
