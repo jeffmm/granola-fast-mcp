@@ -1,7 +1,8 @@
 """MCP tools for Granola meeting data."""
 
+import re
 import zoneinfo
-from datetime import datetime
+from datetime import date, datetime, time, timezone
 from typing import Annotated, Any, Literal
 
 from fastmcp import Context
@@ -12,6 +13,8 @@ from granola_fast_mcp.cache import get_cache_mtime, load_cache
 from granola_fast_mcp.server import mcp
 from granola_fast_mcp.timezone import format_local_time
 from granola_fast_mcp.types import CacheData, MeetingMetadata
+
+_ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -42,6 +45,56 @@ _TOOL_ANNOTATIONS = {
 }
 
 
+def _parse_date_range(
+    query: str,
+    start_date: str | None,
+    end_date: str | None,
+    tz: zoneinfo.ZoneInfo,
+) -> tuple[datetime | None, datetime | None, bool]:
+    """Return (start_dt, end_dt, query_was_date).
+
+    If the query itself is an ISO date and no explicit range is given,
+    treat it as a single-day range.
+    """
+    query_was_date = False
+
+    if not start_date and not end_date and _ISO_DATE_RE.match(query):
+        start_date = query
+        query_was_date = True
+
+    sd = (
+        datetime.combine(date.fromisoformat(start_date), time.min, tzinfo=tz)
+        if start_date
+        else None
+    )
+    ed_date = end_date or (start_date if start_date and not end_date else None)
+    ed = (
+        datetime.combine(date.fromisoformat(ed_date), time.max, tzinfo=tz)
+        if ed_date
+        else None
+    )
+    return sd, ed, query_was_date
+
+
+def _filter_by_date(
+    meetings: dict[str, MeetingMetadata],
+    sd: datetime | None,
+    ed: datetime | None,
+) -> dict[str, MeetingMetadata]:
+    """Filter meetings to those within [sd, ed]."""
+    if sd is None and ed is None:
+        return meetings
+    filtered = {}
+    for mid, m in meetings.items():
+        mdate = m.date if m.date.tzinfo else m.date.replace(tzinfo=timezone.utc)
+        if sd and mdate < sd:
+            continue
+        if ed and mdate > ed:
+            continue
+        filtered[mid] = m
+    return filtered
+
+
 # ---------------------------------------------------------------------------
 # Tools
 # ---------------------------------------------------------------------------
@@ -49,22 +102,61 @@ _TOOL_ANNOTATIONS = {
 
 @mcp.tool(annotations=_TOOL_ANNOTATIONS)
 def search_meetings(
-    query: Annotated[str, Field(description="Search query for meetings")],
     ctx: Context,
+    query: Annotated[str, Field(description="Search query for meetings")] = "",
     limit: Annotated[
         int, Field(description="Maximum number of results", ge=1, le=50)
     ] = 10,
+    start_date: Annotated[
+        str | None,
+        Field(
+            description="Filter to meetings on or after this date (ISO 8601, e.g. 2026-02-09)"
+        ),
+    ] = None,
+    end_date: Annotated[
+        str | None,
+        Field(
+            description="Filter to meetings on or before this date (ISO 8601, e.g. 2026-02-09)"
+        ),
+    ] = None,
 ) -> str:
-    """Search meetings by title, content, or participants."""
+    """Search meetings by title, content, or participants.
+
+    Supports date filtering: pass an ISO date as the query (e.g. "2026-02-09")
+    to list all meetings on that day, or use start_date/end_date for ranges.
+    """
     cache, tz = _get_state(ctx)
 
     if not cache.meetings:
         return "No meeting data available"
 
+    sd, ed, query_was_date = _parse_date_range(query, start_date, end_date, tz)
+    candidates = _filter_by_date(cache.meetings, sd, ed)
+
+    if query_was_date or not query.strip():
+        # Date-only or empty query: return all matches sorted chronologically
+        if not candidates:
+            if sd:
+                return f"No meetings found for {sd.strftime('%Y-%m-%d')}"
+            return "No meetings found"
+        results = sorted(candidates.values(), key=lambda m: m.date)[:limit]
+        date_label = sd.strftime("%Y-%m-%d") if sd else "all dates"
+        lines = [f"Found {len(results)} meeting(s) for {date_label}:\n"]
+        for meeting in results:
+            lines.append(f"• **{meeting.title}** ({meeting.id})")
+            lines.append(f"  Date: {format_local_time(meeting.date, tz)}")
+            if meeting.participants:
+                lines.append(
+                    f"  Participants: {', '.join(meeting.participants)}"
+                )
+            lines.append("")
+        return "\n".join(lines)
+
+    # Text query: score against candidates (existing logic)
     query_lower = query.lower()
     scored: list[tuple[int, MeetingMetadata]] = []
 
-    for meeting_id, meeting in cache.meetings.items():
+    for meeting_id, meeting in candidates.items():
         score = 0
         if query_lower in meeting.title.lower():
             score += 2
@@ -73,6 +165,9 @@ def search_meetings(
                 score += 1
         if meeting_id in cache.transcripts:
             if query_lower in cache.transcripts[meeting_id].content.lower():
+                score += 1
+        if meeting_id in cache.documents:
+            if query_lower in cache.documents[meeting_id].content.lower():
                 score += 1
         if score > 0:
             scored.append((score, meeting))

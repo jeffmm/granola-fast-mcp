@@ -75,6 +75,76 @@ class TestSearchMeetings:
             assert "Weekly Team Standup" in text
 
 
+class TestSearchMeetingsByDate:
+    @pytest.mark.asyncio
+    async def test_search_by_iso_date(self, client: Client):
+        """query="2024-01-15" should find meetings from that date."""
+        async with client:
+            result = await client.call_tool(
+                "search_meetings", {"query": "2024-01-15"}
+            )
+            text = result.content[0].text
+            assert "Weekly Team Standup" in text
+
+    @pytest.mark.asyncio
+    async def test_search_by_explicit_date_params(self, client: Client):
+        """start_date + end_date should filter meetings to that range."""
+        async with client:
+            result = await client.call_tool(
+                "search_meetings",
+                {"start_date": "2024-01-15", "end_date": "2024-01-15"},
+            )
+            text = result.content[0].text
+            assert "Weekly Team Standup" in text
+            assert "Q1 Planning" not in text
+
+    @pytest.mark.asyncio
+    async def test_search_text_with_date_filter(self, client: Client):
+        """Combining text query + date filter should narrow results."""
+        async with client:
+            result = await client.call_tool(
+                "search_meetings",
+                {"query": "Alice", "start_date": "2024-01-20", "end_date": "2024-01-20"},
+            )
+            text = result.content[0].text
+            assert "Q1 Planning" in text
+            assert "Weekly Team Standup" not in text
+
+    @pytest.mark.asyncio
+    async def test_search_date_no_results(self, client: Client):
+        """A date with no meetings returns an appropriate message."""
+        async with client:
+            result = await client.call_tool(
+                "search_meetings", {"query": "2099-12-25"}
+            )
+            text = result.content[0].text
+            assert "No meetings found" in text
+
+    @pytest.mark.asyncio
+    async def test_search_date_range_multiple(self, client: Client):
+        """A date range spanning multiple meetings returns all of them."""
+        async with client:
+            result = await client.call_tool(
+                "search_meetings",
+                {"start_date": "2024-01-01", "end_date": "2024-01-31"},
+            )
+            text = result.content[0].text
+            assert "Weekly Team Standup" in text
+            assert "Q1 Planning" in text
+            assert "Database Optimization" not in text
+
+    @pytest.mark.asyncio
+    async def test_search_empty_query_with_date(self, client: Client):
+        """Empty query with date params returns all meetings in range."""
+        async with client:
+            result = await client.call_tool(
+                "search_meetings",
+                {"query": "", "start_date": "2024-02-01", "end_date": "2024-02-28"},
+            )
+            text = result.content[0].text
+            assert "Database Optimization" in text
+
+
 class TestGetMeeting:
     @pytest.mark.asyncio
     async def test_existing_meeting(self, client: Client):
