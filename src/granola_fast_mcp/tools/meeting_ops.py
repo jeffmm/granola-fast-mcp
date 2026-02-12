@@ -58,9 +58,10 @@ def _parse_date_range(
     """
     query_was_date = False
 
-    if not start_date and not end_date and _ISO_DATE_RE.match(query):
-        start_date = query
+    if _ISO_DATE_RE.match(query):
         query_was_date = True
+        if not start_date and not end_date:
+            start_date = query
 
     sd = (
         datetime.combine(date.fromisoformat(start_date), time.min, tzinfo=tz)

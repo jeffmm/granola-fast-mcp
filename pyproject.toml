@@ -19,6 +19,7 @@ build-backend = "uv_build"
 
 [dependency-groups]
 dev = [
+    "ipython>=9.10.0",
     "prek>=0.3.2",
     "pytest>=9.0.2",
     "pytest-asyncio>=0.23.0",
